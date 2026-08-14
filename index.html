@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="description" content="A simple life admin app for reminders, renewals, subscriptions and recurring expenses." />
+  <title>Life Admin</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <section id="authGate" class="auth-gate hidden" aria-live="polite">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <img src="assets/logo.png" alt="Life Admin logo" class="auth-logo-image" />
+        <div>
+          <p class="eyebrow">LIFE ADMIN</p>
+          <h1>Keep life organised.</h1>
+          <p>Sign in to securely sync reminders, recurring expenses and your app appearance across devices.</p>
+        </div>
+      </div>
+
+      <div id="authTabs" class="auth-tabs">
+        <button class="auth-tab active" data-auth-mode="signin" type="button">Sign in</button>
+        <button class="auth-tab" data-auth-mode="signup" type="button">Create account</button>
+      </div>
+
+      <form id="authForm" class="auth-form">
+        <label id="authEmailLabel">
+          Email
+          <input id="authEmail" type="email" autocomplete="email" required placeholder="you@example.com" />
+        </label>
+
+        <label>
+          <span id="authPasswordText">Password</span>
+          <input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="At least 6 characters" />
+        </label>
+
+        <label id="authConfirmWrap" class="hidden">
+          Confirm password
+          <input id="authConfirmPassword" type="password" minlength="6" placeholder="Repeat your password" />
+        </label>
+
+        <button id="authSubmitBtn" class="primary-btn full" type="submit">Sign in</button>
+      </form>
+
+      <button id="forgotPasswordBtn" class="text-btn auth-link" type="button">Forgot your password?</button>
+      <p id="authMessage" class="auth-message" role="status"></p>
+      <p class="auth-fineprint">Each account can only access its own data through Supabase Row Level Security.</p>
+    </div>
+  </section>
+  <div class="app-shell">
+    <header class="topbar premium-topbar">
+      <div class="brand-panel">
+        <div class="brand-logo-wrap">
+          <img src="assets/logo.png" alt="Life Admin logo" class="brand-logo" />
+        </div>
+
+        <div class="brand-copy">
+          <div class="brand-kicker-row">
+            <span class="brand-kicker">PERSONAL ORGANISER</span>
+            <span class="brand-status-chip">Simple • Secure • Synced</span>
+          </div>
+
+          <h1>Life Admin</h1>
+          <p class="subtitle">Everything you need to remember, all in one calm place.</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions premium-actions">
+        <button id="installBtn" class="ghost-btn install-trigger" type="button">
+          <span class="action-icon">↓</span>
+          <span>Install App</span>
+        </button>
+
+        <button id="syncNowBtn" class="ghost-btn sync-trigger" type="button">
+          <span class="action-icon">↻</span>
+          <span>Sync now</span>
+        </button>
+
+        <button id="appearanceBtn" class="ghost-btn appearance-trigger" type="button">
+          <span class="action-icon">◐</span>
+          <span>Appearance</span>
+        </button>
+
+        <button id="accountBtn" class="ghost-btn account-trigger" type="button">
+          <span class="action-icon">○</span>
+          <span>Account</span>
+        </button>
+
+        <button id="notifyBtn" class="ghost-btn notify-trigger" type="button">
+          <span class="action-icon">•</span>
+          <span>Notifications</span>
+        </button>
+      </div>
+    </header>
+
+    <section id="cloudStatusBar" class="cloud-status-bar" aria-live="polite">
+      <div class="cloud-status-copy">
+        <span id="syncDot" class="sync-dot local"></span>
+        <div>
+          <strong id="syncStatusText">Checking cloud setup…</strong>
+          <small id="syncStatusDetail">Your data is still available locally while the app checks Supabase.</small>
+        </div>
+      </div>
+      <button id="cloudSetupHelpBtn" class="text-btn cloud-help-btn" type="button">Setup help</button>
+    </section>
+
+    <main>
+      <section class="hero-card">
+        <div>
+          <span class="pill">Today</span>
+          <h2 id="todayHeading">You're all caught up.</h2>
+          <p id="todaySubtext">Add a reminder, bill, renewal or subscription to get started.</p>
+        </div>
+        <button id="quickAddBtn" class="primary-btn" type="button">+ Add reminder</button>
+      </section>
+
+      <section class="stats-grid" aria-label="Overview">
+        <article class="stat-card">
+          <span class="stat-label">Due today</span>
+          <strong id="dueTodayCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Next 7 days</span>
+          <strong id="dueSoonCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Monthly recurring</span>
+          <strong id="monthlyTotal">R0</strong>
+        </article>
+        <article class="stat-card">
+          <span class="stat-label">Yearly recurring</span>
+          <strong id="yearlyTotal">R0</strong>
+        </article>
+      </section>
+
+      <section class="content-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">WHAT'S NEXT</p>
+              <h2>Upcoming</h2>
+            </div>
+            <select id="filterCategory" class="select compact" aria-label="Filter category">
+              <option value="all">All categories</option>
+              <option value="Bills">Bills</option>
+              <option value="Subscriptions">Subscriptions</option>
+              <option value="Documents">Documents</option>
+              <option value="Appointments">Appointments</option>
+              <option value="Family">Family</option>
+              <option value="Vehicle">Vehicle</option>
+              <option value="Health">Health</option>
+              <option value="Pets">Pets</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div id="reminderList" class="reminder-list"></div>
+        </div>
+
+        <aside class="panel side-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">MONEY</p>
+              <h2>Recurring expenses</h2>
+            </div>
+            <button id="addExpenseBtn" class="small-btn" type="button">+ Add</button>
+          </div>
+          <div id="expenseList" class="expense-list"></div>
+          <div class="expense-summary">
+            <div>
+              <span>Monthly total</span>
+              <strong id="expenseMonthlyTotal">R0</strong>
+            </div>
+            <div>
+              <span>Annual total</span>
+              <strong id="expenseYearlyTotal">R0</strong>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="panel completed-panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">DONE</p>
+            <h2>Completed</h2>
+          </div>
+          <button id="clearCompletedBtn" class="text-btn" type="button">Clear completed</button>
+        </div>
+        <div id="completedList" class="reminder-list"></div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Main navigation">
+      <button class="nav-item active" data-target="home" type="button">
+        <span>⌂</span><small>Home</small>
+      </button>
+      <button class="nav-item" id="navAddBtn" type="button">
+        <span>＋</span><small>Add</small>
+      </button>
+      <button class="nav-item" id="navExpensesBtn" type="button">
+        <span>R</span><small>Expenses</small>
+      </button>
+      <button class="nav-item" id="navAppearanceBtn" type="button">
+        <span>◐</span><small>Theme</small>
+      </button>
+    </nav>
+  </div>
+
+
+  <dialog id="appearanceDialog" class="dialog appearance-dialog">
+    <div class="form-card">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">PERSONALISE</p>
+          <h2>Appearance</h2>
+          <p class="dialog-subtitle">Choose a general theme and your preferred app colour.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="appearanceDialog" aria-label="Close">×</button>
+      </div>
+
+      <section class="appearance-section">
+        <div class="setting-heading">
+          <strong>Theme</strong>
+          <span id="currentThemeLabel">Light</span>
+        </div>
+        <div class="theme-grid" id="themeGrid">
+          <button class="theme-option" type="button" data-theme-choice="light">
+            <span class="theme-preview light-preview">
+              <i></i><i></i><i></i>
+            </span>
+            <span>Light</span>
+          </button>
+
+          <button class="theme-option" type="button" data-theme-choice="dark">
+            <span class="theme-preview dark-preview">
+              <i></i><i></i><i></i>
+            </span>
+            <span>Dark</span>
+          </button>
+
+          <button class="theme-option" type="button" data-theme-choice="soft">
+            <span class="theme-preview soft-preview">
+              <i></i><i></i><i></i>
+            </span>
+            <span>Soft</span>
+          </button>
+
+          <button class="theme-option" type="button" data-theme-choice="warm">
+            <span class="theme-preview warm-preview">
+              <i></i><i></i><i></i>
+            </span>
+            <span>Warm</span>
+          </button>
+
+          <button class="theme-option" type="button" data-theme-choice="system">
+            <span class="theme-preview system-preview">
+              <i></i><i></i><i></i>
+            </span>
+            <span>System</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="appearance-section">
+        <div class="setting-heading">
+          <strong>App colour</strong>
+          <span id="currentAccentLabel">Emerald</span>
+        </div>
+
+        <div class="accent-grid" id="accentGrid" aria-label="App colour choices">
+          <button class="accent-option" type="button" data-accent="#1f6f5f" data-accent-name="Emerald" aria-label="Emerald">
+            <span style="--swatch:#1f6f5f"></span>
+          </button>
+          <button class="accent-option" type="button" data-accent="#2563eb" data-accent-name="Blue" aria-label="Blue">
+            <span style="--swatch:#2563eb"></span>
+          </button>
+          <button class="accent-option" type="button" data-accent="#7c3aed" data-accent-name="Purple" aria-label="Purple">
+            <span style="--swatch:#7c3aed"></span>
+          </button>
+          <button class="accent-option" type="button" data-accent="#db2777" data-accent-name="Rose" aria-label="Rose">
+            <span style="--swatch:#db2777"></span>
+          </button>
+          <button class="accent-option" type="button" data-accent="#ea580c" data-accent-name="Orange" aria-label="Orange">
+            <span style="--swatch:#ea580c"></span>
+          </button>
+          <button class="accent-option" type="button" data-accent="#0f766e" data-accent-name="Teal" aria-label="Teal">
+            <span style="--swatch:#0f766e"></span>
+          </button>
+        </div>
+
+        <label class="custom-colour-row">
+          <span>
+            <strong>Custom colour</strong>
+            <small>Choose any colour you like</small>
+          </span>
+          <input id="customAccent" type="color" value="#1f6f5f" aria-label="Choose a custom app colour" />
+        </label>
+      </section>
+
+      <button id="resetAppearanceBtn" class="small-btn full-width" type="button">Reset to default</button>
+    </div>
+  </dialog>
+
+
+  <dialog id="accountDialog" class="dialog">
+    <div class="form-card">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">YOUR ACCOUNT</p>
+          <h2>Account & cloud</h2>
+          <p id="accountEmail" class="dialog-subtitle">Local mode</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="accountDialog" aria-label="Close">×</button>
+      </div>
+
+      <div class="account-info-card">
+        <div>
+          <span>Cloud status</span>
+          <strong id="accountCloudStatus">Local only</strong>
+        </div>
+        <div>
+          <span>Last sync</span>
+          <strong id="accountLastSync">Not synced yet</strong>
+        </div>
+      </div>
+
+      <button id="accountSyncBtn" class="small-btn full-width" type="button">Sync now</button>
+      <button id="logoutBtn" class="danger-btn full-width" type="button">Sign out</button>
+    </div>
+  </dialog>
+
+  <dialog id="installDialog" class="dialog">
+    <div class="form-card">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">INSTALL LIFE ADMIN</p>
+          <h2>Add the app to your device</h2>
+          <p class="dialog-subtitle">Life Admin is a Progressive Web App, so your website can install it like an app without an app-store download.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="installDialog" aria-label="Close">×</button>
+      </div>
+
+      <div id="installInstructions" class="install-instructions"></div>
+      <button id="tryInstallBtn" class="primary-btn full" type="button">Install App</button>
+    </div>
+  </dialog>
+
+  <dialog id="setupDialog" class="dialog">
+    <div class="form-card">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">SUPABASE SETUP</p>
+          <h2>Connect cloud syncing</h2>
+          <p class="dialog-subtitle">The app is ready for Supabase. Add your own project URL and publishable key to activate login and cloud sync.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="setupDialog" aria-label="Close">×</button>
+      </div>
+
+      <ol class="setup-steps">
+        <li>Create or open your Supabase project.</li>
+        <li>Run <code>supabase-schema.sql</code> in the SQL Editor.</li>
+        <li>Open <code>config.js</code> in this app folder.</li>
+        <li>Paste your Project URL and <strong>publishable</strong> key.</li>
+        <li>Upload the app folder to an HTTPS website and refresh.</li>
+      </ol>
+
+      <div class="security-note">
+        Never put a <code>service_role</code> or secret key into website JavaScript.
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="reminderDialog" class="dialog">
+    <form id="reminderForm" method="dialog" class="form-card">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">NEW ITEM</p>
+          <h2>Add reminder</h2>
+        </div>
+        <button class="icon-btn" type="button" data-close="reminderDialog" aria-label="Close">×</button>
+      </div>
+
+      <label>
+        What do you need to remember?
+        <input id="title" name="title" required maxlength="80" placeholder="e.g. Renew car licence" />
+      </label>
+
+      <div class="two-col">
+        <label>
+          Category
+          <select id="category" name="category" class="select">
+            <option>Bills</option>
+            <option>Subscriptions</option>
+            <option>Documents</option>
+            <option>Appointments</option>
+            <option>Family</option>
+            <option>Vehicle</option>
+            <option>Health</option>
+            <option>Pets</option>
+            <option>Other</option>
+          </select>
+        </label>
+
+        <label>
+          Priority
+          <select id="priority" name="priority" class="select">
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="two-col">
+        <label>
+          Due date
+          <input id="dueDate" name="dueDate" type="date" required />
+        </label>
+
+        <label>
+          Time
+          <input id="dueTime" name="dueTime" type="time" value="09:00" />
+        </label>
+      </div>
+
+      <div class="two-col">
+        <label>
+          Repeat
+          <select id="repeat" name="repeat" class="select">
+            <option value="none">Does not repeat</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </label>
+
+        <label>
+          Amount (optional)
+          <input id="amount" name="amount" type="number" min="0" step="0.01" placeholder="0.00" />
+        </label>
+      </div>
+
+      <label>
+        Notes
+        <textarea id="notes" name="notes" rows="3" maxlength="240" placeholder="Optional details"></textarea>
+      </label>
+
+      <button class="primary-btn full" type="submit">Save reminder</button>
+    </form>
+  </dialog>
+
+  <dialog id="expenseDialog" class="dialog">
+    <form id="expenseForm" method="dialog" class="form-card">
+      <div class="dialog-head">
+        <div>
+          <p class="eyebrow">RECURRING COST</p>
+          <h2>Add expense</h2>
+        </div>
+        <button class="icon-btn" type="button" data-close="expenseDialog" aria-label="Close">×</button>
+      </div>
+
+      <label>
+        Name
+        <input id="expenseName" required maxlength="60" placeholder="e.g. Netflix" />
+      </label>
+
+      <div class="two-col">
+        <label>
+          Amount
+          <input id="expenseAmount" type="number" min="0" step="0.01" required placeholder="159.00" />
+        </label>
+        <label>
+          Billing
+          <select id="expenseFrequency" class="select">
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+            <option value="weekly">Weekly</option>
+          </select>
+        </label>
+      </div>
+
+      <label>
+        Next payment date
+        <input id="expenseDate" type="date" required />
+      </label>
+
+      <button class="primary-btn full" type="submit">Save expense</button>
+    </form>
+  </dialog>  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
