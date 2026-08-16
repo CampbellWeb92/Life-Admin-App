@@ -1,10 +1,10 @@
-const CACHE = "life-admin-v7";
+const CACHE = "life-admin-firebase-v1";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./config.js",
+  "./firebase-config.js",
   "./manifest.json",
   "./assets/logo.png",
   "./icons/icon-180.png",
