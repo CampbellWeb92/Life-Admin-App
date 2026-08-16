@@ -48,7 +48,7 @@
 
       <button id="forgotPasswordBtn" class="text-btn auth-link" type="button">Forgot your password?</button>
       <p id="authMessage" class="auth-message" role="status"></p>
-      <p class="auth-fineprint">Each account can only access its own private data through Firebase Authentication and Firestore Security Rules.</p>
+      <p class="auth-fineprint">Each account can only access its own data through Supabase Row Level Security.</p>
     </div>
   </section>
   <div class="app-shell">
@@ -91,8 +91,8 @@
         </button>
 
         <button id="notifyBtn" class="ghost-btn notify-trigger" type="button">
-          <span class="action-icon">•</span>
-          <span>Notifications</span>
+          <span class="action-icon">●</span>
+          <span id="notifyBtnLabel">Notifications</span>
         </button>
       </div>
     </header>
@@ -102,7 +102,7 @@
         <span id="syncDot" class="sync-dot local"></span>
         <div>
           <strong id="syncStatusText">Checking cloud setup…</strong>
-          <small id="syncStatusDetail">Your data is still available locally while the app checks Firebase.</small>
+          <small id="syncStatusDetail">Your data is still available locally while the app checks Supabase.</small>
         </div>
       </div>
       <button id="cloudSetupHelpBtn" class="text-btn cloud-help-btn" type="button">Setup help</button>
@@ -353,23 +353,23 @@
     <div class="form-card">
       <div class="dialog-head">
         <div>
-          <p class="eyebrow">FIREBASE SETUP</p>
-          <h2>Connect Firebase cloud syncing</h2>
-          <p class="dialog-subtitle">The app is ready for Firebase. Add your Firebase web configuration to activate login and cloud sync.</p>
+          <p class="eyebrow">SUPABASE SETUP</p>
+          <h2>Connect cloud syncing</h2>
+          <p class="dialog-subtitle">The app is ready for Supabase. Add your project URL, publishable key and Web Push public key to activate login, cloud sync and background notifications.</p>
         </div>
         <button class="icon-btn" type="button" data-close="setupDialog" aria-label="Close">×</button>
       </div>
 
       <ol class="setup-steps">
-        <li>Create or open your Firebase project.</li>
-        <li>Create a Cloud Firestore database, then publish the included <code>firestore.rules</code>.</li>
-        <li>Open <code>firebase-config.js</code> in the <code>public</code> folder.</li>
-        <li>Paste the Firebase configuration object from your registered Web app.</li>
-        <li>Deploy with Firebase Hosting or upload the public folder to any HTTPS website.</li>
+        <li>Create or open your Supabase project.</li>
+        <li>Run <code>supabase-schema.sql</code> in the SQL Editor.</li>
+        <li>Open <code>config.js</code> in this app folder.</li>
+        <li>Paste your Project URL and <strong>publishable</strong> key.</li>
+        <li>Upload the app folder to an HTTPS website and refresh.</li>
       </ol>
 
       <div class="security-note">
-        Your Firebase web config identifies the project; access to private data is controlled by Authentication and Firestore Security Rules.
+        Never put a <code>service_role</code> or secret key into website JavaScript.
       </div>
     </div>
   </dialog>
@@ -489,7 +489,8 @@
 
       <button class="primary-btn full" type="submit">Save expense</button>
     </form>
-  </dialog>
-  <script type="module" src="app.js?v=20260816-1"></script>
+  </dialog>  <script src="config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0"></script>
+  <script src="app.js"></script>
 </body>
 </html>
