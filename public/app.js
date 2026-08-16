@@ -1,4 +1,4 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.0/firebase-app.js";
 import {
   getAuth,
   setPersistence,
@@ -8,7 +8,7 @@ import {
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   signOut
-} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.17.0/firebase-auth.js";
 import {
   getFirestore,
   collection,
@@ -18,9 +18,9 @@ import {
   setDoc,
   deleteDoc,
   onSnapshot
-} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.17.0/firebase-firestore.js";
 
-import { firebaseConfig } from "./firebase-config.js";
+import { firebaseConfig } from "./firebase-config.js?v=20260816-1";
 
 const STORAGE_KEYS = {
   reminders: "lifeAdmin.reminders",

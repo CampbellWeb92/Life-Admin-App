@@ -1,10 +1,10 @@
-const CACHE = "life-admin-firebase-v1";
+const CACHE = "life-admin-firebase-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
-  "./app.js",
-  "./firebase-config.js",
+  "./app.js?v=20260816-1",
+  "./firebase-config.js?v=20260816-1",
   "./manifest.json",
   "./assets/logo.png",
   "./icons/icon-180.png",
@@ -30,15 +30,22 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
 
-  if (event.request.mode === "navigate") {
+  const url = new URL(event.request.url);
+  const isCriticalModule = url.pathname.endsWith("/app.js") || url.pathname.endsWith("/firebase-config.js");
+
+  if (event.request.mode === "navigate" || isCriticalModule) {
     event.respondWith(
       fetch(event.request)
         .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE).then(cache => cache.put("./index.html", copy));
+          if (response.ok && event.request.url.startsWith(self.location.origin)) {
+            const copy = response.clone();
+            caches.open(CACHE).then(cache => cache.put(event.request, copy));
+          }
           return response;
         })
-        .catch(() => caches.match("./index.html"))
+        .catch(() =>
+          caches.match(event.request).then(cached => cached || caches.match("./index.html"))
+        )
     );
     return;
   }
@@ -49,7 +56,7 @@ self.addEventListener("fetch", event => {
 
       return fetch(event.request)
         .then(response => {
-          if (event.request.url.startsWith(self.location.origin)) {
+          if (response.ok && event.request.url.startsWith(self.location.origin)) {
             const copy = response.clone();
             caches.open(CACHE).then(cache => cache.put(event.request, copy));
           }
