@@ -121,10 +121,6 @@ async function applyPersonalizationMedia() {
   const preview = $("backgroundImagePreview");
   if (preview) preview.innerHTML = bg ? `<img src="${escapeHtml(bg)}" alt="Your background image">` : "";
 
-  const notifUrl = await getSignedMediaUrl(state.personalization?.notificationImagePath);
-  const notifPreview = $("notificationImagePreview");
-  if (notifPreview) notifPreview.innerHTML = notifUrl ? `<img src="${escapeHtml(notifUrl)}" alt="Your notification image">` : "";
-  if ($("notificationImageEnabled")) $("notificationImageEnabled").checked = Boolean(state.personalization?.notificationImageEnabled);
 }
 
 async function syncPersonalizationToCloud() {
@@ -137,8 +133,6 @@ async function syncPersonalizationToCloud() {
     accent_name: state.appearance.accentName,
     notification_tone: p.notificationTone,
     background_image_path: p.backgroundImagePath || null,
-    notification_image_path: p.notificationImagePath || null,
-    notification_image_enabled: Boolean(p.notificationImageEnabled),
     updated_at: new Date().toISOString()
   });
   if (error) { console.error("Personalization sync failed:", error); return false; }
@@ -688,6 +682,7 @@ function reminderToRow(reminder) {
     location: reminder.location || null,
     remind_before: Number(reminder.remindBefore || 0),
     attachment: reminder.attachment || null,
+    notification_image_path: reminder.notificationImagePath || null,
     completed: Boolean(reminder.completed),
     completed_at: reminder.completedAt || null,
     created_at: reminder.createdAt || new Date().toISOString()
@@ -710,6 +705,7 @@ function rowToReminder(row) {
     location: row.location || "",
     remindBefore: Number(row.remind_before || 0),
     attachment: row.attachment || "",
+    notificationImagePath: row.notification_image_path || "",
     completed: Boolean(row.completed),
     completedAt: row.completed_at,
     createdAt: row.created_at
@@ -1200,8 +1196,43 @@ async function clearCompleted() {
   }
 }
 
+let pendingReminderNotificationImagePath = "";
+
+async function renderReminderNotificationImage(path = pendingReminderNotificationImagePath) {
+  const preview = $("reminderNotificationImagePreview");
+  if (!preview) return;
+  const url = await getSignedMediaUrl(path);
+  preview.innerHTML = url ? `<img src="${escapeHtml(url)}" alt="Notification image for this reminder">` : "";
+}
+
+async function uploadReminderNotificationImage(file) {
+  if (!state.supabase || !state.user || !file) return;
+  if (!file.type.startsWith("image/")) return alert("Please choose an image file.");
+  if (file.size > 10 * 1024 * 1024) return alert("Please choose an image smaller than 10 MB.");
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `${state.user.id}/reminder-${uid()}-${Date.now()}.${ext}`;
+  const { error } = await state.supabase.storage.from("life-admin-media").upload(path, file, { upsert: false, contentType: file.type });
+  if (error) return alert(`Image upload failed: ${error.message}`);
+  pendingReminderNotificationImagePath = path;
+  await renderReminderNotificationImage(path);
+}
+
+async function removePendingReminderNotificationImage() {
+  if (pendingReminderNotificationImagePath && state.supabase && state.user) {
+    await state.supabase.storage.from("life-admin-media").remove([pendingReminderNotificationImagePath]);
+  }
+  pendingReminderNotificationImagePath = "";
+  const input = $("reminderNotificationImageUpload");
+  if (input) input.value = "";
+  await renderReminderNotificationImage("");
+}
+
 function openReminderDialog() {
   reminderForm.reset();
+  delete reminderForm.dataset.editId;
+  pendingReminderNotificationImagePath = "";
+  if ($("reminderNotificationImageUpload")) $("reminderNotificationImageUpload").value = "";
+  renderReminderNotificationImage("");
   $("dueDate").value = localDateString();
   $("dueTime").value = "09:00";
   reminderDialog.showModal();
@@ -1328,6 +1359,7 @@ reminderForm.addEventListener("submit", async (event) => {
     dueDate: $("dueDate").value, dueTime: $("dueTime").value || "09:00", dueAt: dueTimestamp($("dueDate").value, $("dueTime").value || "09:00"),
     dueTimezone: currentTimeZone(), repeat: $("repeat").value, amount: $("amount").value ? Number($("amount").value) : null,
     notes: $("notes").value.trim(), location: $("location")?.value.trim() || "", remindBefore: Number($("remindBefore")?.value || 0), attachment: $("attachment")?.value.trim() || "",
+    notificationImagePath: pendingReminderNotificationImagePath || "",
     completed: false, completedAt: null, createdAt: new Date().toISOString()
   };
   if (!reminder.title || !reminder.dueDate) return;
@@ -1348,6 +1380,8 @@ expenseForm.addEventListener("submit", async (event) => {
 });
 
 /* ---------- General interface ---------- */
+$("reminderNotificationImageUpload")?.addEventListener("change", e => uploadReminderNotificationImage(e.target.files?.[0]));
+$("removeReminderNotificationImageBtn")?.addEventListener("click", removePendingReminderNotificationImage);
 $("quickAddBtn").addEventListener("click", openReminderDialog);
 $("navAddBtn").addEventListener("click", openReminderDialog);
 $("addExpenseBtn").addEventListener("click", openExpenseDialog);
@@ -1392,14 +1426,7 @@ document.querySelectorAll("[data-tone]").forEach(button => {
 });
 $("previewNotificationToneBtn")?.addEventListener("click", () => previewNotificationTone());
 $("backgroundImageUpload")?.addEventListener("change", e => uploadPersonalImage("background", e.target.files?.[0]));
-$("notificationImageUpload")?.addEventListener("change", e => uploadPersonalImage("notification", e.target.files?.[0]));
 $("removeBackgroundImageBtn")?.addEventListener("click", () => removePersonalImage("background"));
-$("removeNotificationImageBtn")?.addEventListener("click", () => removePersonalImage("notification"));
-$("notificationImageEnabled")?.addEventListener("change", async e => {
-  state.personalization.notificationImageEnabled = e.target.checked;
-  savePersonalizationLocal();
-  await syncPersonalizationToCloud();
-});
 
 /* ---------- Background push notifications ---------- */
 $("notifyBtn").addEventListener("click", requestNotifications);

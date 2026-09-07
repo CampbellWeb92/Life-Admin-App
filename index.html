@@ -375,20 +375,7 @@
         <div class="media-preview" id="backgroundImagePreview"></div>
         <button id="removeBackgroundImageBtn" class="small-btn full-width" type="button">Remove background image</button>
       </section>
-
-      <section class="appearance-section personalization-media-section">
-        <div class="setting-heading">
-          <strong>Notification image</strong>
-          <span>Private to you</span>
-        </div>
-        <p class="setting-help">Choose an image to show with your Life Admin push notifications where the browser supports notification images.</p>
-        <input id="notificationImageUpload" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
-        <label class="toggle-row"><span><strong>Use my image in notifications</strong><small>Applies to future background push alerts.</small></span><input id="notificationImageEnabled" type="checkbox" /></label>
-        <div class="media-preview" id="notificationImagePreview"></div>
-        <button id="removeNotificationImageBtn" class="small-btn full-width" type="button">Remove notification image</button>
-      </section>
-
-      <button id="resetAppearanceBtn" class="small-btn full-width" type="button">Reset to default</button>
+<button id="resetAppearanceBtn" class="small-btn full-width" type="button">Reset to default</button>
     </div>
   </dialog>
 
@@ -524,6 +511,17 @@
         Attachment URL (optional)
         <input id="attachment" name="attachment" type="url" maxlength="500" placeholder="https://…" />
       </label>
+
+      <section class="reminder-notification-image">
+        <div class="setting-heading">
+          <strong>Notification image</strong>
+          <span>Private to you</span>
+        </div>
+        <p class="setting-help">Choose the image for this reminder's push notification. You can choose a different image for every reminder.</p>
+        <input id="reminderNotificationImageUpload" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+        <div class="media-preview" id="reminderNotificationImagePreview"></div>
+        <button id="removeReminderNotificationImageBtn" class="small-btn full-width" type="button">Remove notification image</button>
+      </section>
 
       <button class="primary-btn full" type="submit">Save reminder</button>
     </form>
