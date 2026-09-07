@@ -15,5 +15,5 @@ window.LIFE_ADMIN_CONFIG = {
 
   // Public VAPID key used by browsers to create Web Push subscriptions.
   // Generate this together with the private VAPID key using generate-vapid-keys.mjs.
-  VAPID_PUBLIC_KEY: "YOUR-VAPID-PUBLIC-KEY"
+  VAPID_PUBLIC_KEY: "BMNoxc201GUtRMz9XqseXiVVrSTWvrRrnkd1ipewApX7k2c6hvccz7KRJ_llX6fe2ZMrWSfLNDp7XxCuZ5bJC7M"
 };
