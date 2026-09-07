@@ -10,8 +10,8 @@
   - NEVER put a service_role / secret key in this file.
 */
 window.LIFE_ADMIN_CONFIG = {
-  SUPABASE_URL: "https://YOUR-PROJECT.supabase.co",
-  SUPABASE_PUBLISHABLE_KEY: "YOUR-PUBLISHABLE-KEY",
+  SUPABASE_URL: "https://yrdkwxlrbzbsfhrezoqj.supabase.co",
+  SUPABASE_PUBLISHABLE_KEY: "sb_publishable_8qolCRMDP8L29HNDAb_S7g_8RhX_kc1",
 
   // Public VAPID key used by browsers to create Web Push subscriptions.
   // Generate this together with the private VAPID key using generate-vapid-keys.mjs.

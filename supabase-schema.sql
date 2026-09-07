@@ -32,6 +32,10 @@ create table if not exists public.expenses (
   created_at timestamptz not null default now()
 );
 
+alter table public.expenses add column if not exists category text not null default 'Other';
+alter table public.expenses add column if not exists status text not null default 'unpaid' check (status in ('unpaid','paid'));
+alter table public.expenses add column if not exists notes text;
+
 create table if not exists public.user_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   theme text not null default 'light' check (theme in ('light','dark','soft','warm','system')),
@@ -44,6 +48,9 @@ create table if not exists public.user_settings (
 -- These ALTER statements add background-push scheduling fields to older reminder tables.
 alter table public.reminders add column if not exists due_at timestamptz;
 alter table public.reminders add column if not exists due_timezone text not null default 'UTC';
+alter table public.reminders add column if not exists location text;
+alter table public.reminders add column if not exists remind_before integer not null default 0;
+alter table public.reminders add column if not exists attachment text;
 
 create table if not exists public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),

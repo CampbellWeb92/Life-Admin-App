@@ -137,6 +137,22 @@
         </article>
       </section>
 
+      <section class="dashboard-tools panel">
+        <div class="tool-row">
+          <div class="search-wrap">
+            <span>⌕</span><input id="globalSearch" type="search" placeholder="Search reminders, bills, subscriptions…" autocomplete="off" />
+          </div>
+          <button id="todayBtn" class="small-btn" type="button">Today</button>
+          <button id="openCalendarBtn" class="small-btn" type="button">Calendar</button>
+        </div>
+        <div id="searchResults" class="search-results hidden"></div>
+      </section>
+
+      <section class="today-panel panel">
+        <div class="panel-head"><div><p class="eyebrow">YOUR DAY</p><h2>Today</h2></div><span id="todayDateLabel" class="tag"></span></div>
+        <div id="todayTimeline" class="timeline"></div>
+      </section>
+
       <section class="content-grid">
         <div class="panel">
           <div class="panel-head">
@@ -182,6 +198,22 @@
         </aside>
       </section>
 
+      <section class="money-dashboard panel">
+        <div class="panel-head"><div><p class="eyebrow">MONEY</p><h2>Money overview</h2></div><button id="moneyAddBtn" class="small-btn" type="button">+ Add bill</button></div>
+        <div class="money-metrics">
+          <div><span>Monthly commitments</span><strong id="moneyMonthly">R0</strong></div>
+          <div><span>Yearly commitments</span><strong id="moneyYearly">R0</strong></div>
+          <div><span>Next 30 days</span><strong id="moneyNext30">R0</strong></div>
+        </div>
+        <div id="moneyDueList" class="money-due-list"></div>
+      </section>
+
+      <section class="inbox-panel panel">
+        <div class="panel-head"><div><p class="eyebrow">CAPTURE</p><h2>Life Admin Inbox</h2></div><span class="tag">Quick capture</span></div>
+        <div class="inbox-capture"><input id="inboxInput" maxlength="160" placeholder="e.g. Renew car licence next month" /><button id="inboxAddBtn" class="primary-btn" type="button">Add to inbox</button></div>
+        <div id="inboxList" class="inbox-list"></div>
+      </section>
+
       <section class="panel completed-panel">
         <div class="panel-head">
           <div>
@@ -195,21 +227,38 @@
     </main>
 
     <nav class="bottom-nav" aria-label="Main navigation">
-      <button class="nav-item active" data-target="home" type="button">
-        <span>⌂</span><small>Home</small>
-      </button>
-      <button class="nav-item" id="navAddBtn" type="button">
-        <span>＋</span><small>Add</small>
-      </button>
-      <button class="nav-item" id="navExpensesBtn" type="button">
-        <span>R</span><small>Expenses</small>
-      </button>
-      <button class="nav-item" id="navAppearanceBtn" type="button">
-        <span>◐</span><small>Theme</small>
-      </button>
+      <button class="nav-item active" id="navHomeBtn" type="button"><span>⌂</span><small>Home</small></button>
+      <button class="nav-item" id="navCalendarBtn" type="button"><span>▦</span><small>Calendar</small></button>
+      <button class="nav-item nav-add-main" id="navAddBtn" type="button"><span>＋</span><small>Add</small></button>
+      <button class="nav-item" id="navExpensesBtn" type="button"><span>R</span><small>Money</small></button>
+      <button class="nav-item" id="navMoreBtn" type="button"><span>•••</span><small>More</small></button>
     </nav>
   </div>
 
+
+  <dialog id="calendarDialog" class="dialog wide-dialog">
+    <div class="form-card">
+      <div class="dialog-head"><div><p class="eyebrow">PLAN AHEAD</p><h2>Calendar</h2><p class="dialog-subtitle">See reminders, appointments, bills and renewals together.</p></div><button class="icon-btn" type="button" data-close="calendarDialog">×</button></div>
+      <div class="calendar-toolbar"><button id="calendarPrev" class="small-btn" type="button">‹</button><strong id="calendarMonthLabel"></strong><button id="calendarNext" class="small-btn" type="button">›</button></div>
+      <div id="calendarGrid" class="calendar-grid"></div>
+      <div id="calendarDayItems" class="calendar-day-items"></div>
+    </div>
+  </dialog>
+
+  <dialog id="moreDialog" class="dialog">
+    <div class="form-card">
+      <div class="dialog-head"><div><p class="eyebrow">MORE</p><h2>Life Admin</h2><p class="dialog-subtitle">Everything else in one place.</p></div><button class="icon-btn" type="button" data-close="moreDialog">×</button></div>
+      <div class="more-grid">
+        <button class="more-item" id="moreNotifications" type="button"><b>🔔 Notifications</b><span>Background alerts & delivery</span></button>
+        <button class="more-item" id="moreCompleted" type="button"><b>✓ History</b><span>Completed items</span></button>
+        <button class="more-item" id="moreExport" type="button"><b>⇩ Export data</b><span>Download a copy of your data</span></button>
+        <button class="more-item" id="moreAppearance" type="button"><b>◐ Appearance</b><span>Theme & app colour</span></button>
+        <button class="more-item" id="moreAccount" type="button"><b>○ Account</b><span>Cloud, sync & sign out</span></button>
+        <button class="more-item" id="moreInstall" type="button"><b>＋ Install</b><span>Add Life Admin to your device</span></button>
+      </div>
+      <div class="settings-note"><strong>Privacy first</strong><span>Your data stays in your local storage and, when connected, your own Supabase account.</span></div>
+    </div>
+  </dialog>
 
   <dialog id="appearanceDialog" class="dialog appearance-dialog">
     <div class="form-card">
@@ -443,9 +492,25 @@
         </label>
       </div>
 
+      <div class="two-col">
+        <label>
+          Location
+          <input id="location" name="location" maxlength="120" placeholder="Optional location" />
+        </label>
+        <label>
+          Remind me before
+          <select id="remindBefore" name="remindBefore" class="select">
+            <option value="0">At due time</option><option value="15">15 minutes before</option><option value="60">1 hour before</option><option value="1440">1 day before</option><option value="2880">2 days before</option>
+          </select>
+        </label>
+      </div>
       <label>
         Notes
-        <textarea id="notes" name="notes" rows="3" maxlength="240" placeholder="Optional details"></textarea>
+        <textarea id="notes" name="notes" rows="3" maxlength="500" placeholder="Optional details"></textarea>
+      </label>
+      <label>
+        Attachment URL (optional)
+        <input id="attachment" name="attachment" type="url" maxlength="500" placeholder="https://…" />
       </label>
 
       <button class="primary-btn full" type="submit">Save reminder</button>
@@ -486,6 +551,11 @@
         Next payment date
         <input id="expenseDate" type="date" required />
       </label>
+      <div class="two-col">
+        <label>Category<select id="expenseCategory" class="select"><option>Subscriptions</option><option>Bills</option><option>Insurance</option><option>Home</option><option>Vehicle</option><option>Work</option><option>Other</option></select></label>
+        <label>Status<select id="expenseStatus" class="select"><option value="unpaid">Upcoming</option><option value="paid">Paid</option></select></label>
+      </div>
+      <label>Notes<textarea id="expenseNotes" rows="2" maxlength="240" placeholder="Optional billing details"></textarea></label>
 
       <button class="primary-btn full" type="submit">Save expense</button>
     </form>

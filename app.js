@@ -4,7 +4,8 @@ const STORAGE_KEYS = {
   appearance: "lifeAdmin.appearance",
   legacyMigrationDone: "lifeAdmin.cloudMigrationDone",
   lastSync: "lifeAdmin.lastSync",
-  pendingOps: "lifeAdmin.pendingOps"
+  pendingOps: "lifeAdmin.pendingOps",
+  inbox: "lifeAdmin.inbox"
 };
 
 const DEFAULT_APPEARANCE = {
@@ -24,6 +25,7 @@ const THEME_NAMES = {
 const state = {
   reminders: load(STORAGE_KEYS.reminders),
   expenses: load(STORAGE_KEYS.expenses),
+  inbox: load(STORAGE_KEYS.inbox),
   appearance: loadAppearance(),
   user: null,
   supabase: null,
@@ -67,6 +69,7 @@ function loadAppearance() {
 function saveLocalData() {
   localStorage.setItem(STORAGE_KEYS.reminders, JSON.stringify(state.reminders));
   localStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(state.expenses));
+  localStorage.setItem(STORAGE_KEYS.inbox, JSON.stringify(state.inbox || []));
 }
 
 function saveAppearanceLocal() {
@@ -363,6 +366,7 @@ function openAppearanceDialog() {
 
 /* ---------- Rendering ---------- */
 function render() {
+  if (window.lifeAdminEnhancedRender) return window.lifeAdminEnhancedRender();
   renderReminders();
   renderCompleted();
   renderExpenses();
@@ -568,6 +572,9 @@ function reminderToRow(reminder) {
     repeat: reminder.repeat || "none",
     amount: reminder.amount === null || reminder.amount === "" ? null : Number(reminder.amount),
     notes: reminder.notes || null,
+    location: reminder.location || null,
+    remind_before: Number(reminder.remindBefore || 0),
+    attachment: reminder.attachment || null,
     completed: Boolean(reminder.completed),
     completed_at: reminder.completedAt || null,
     created_at: reminder.createdAt || new Date().toISOString()
@@ -587,6 +594,9 @@ function rowToReminder(row) {
     repeat: row.repeat,
     amount: row.amount === null ? null : Number(row.amount),
     notes: row.notes || "",
+    location: row.location || "",
+    remindBefore: Number(row.remind_before || 0),
+    attachment: row.attachment || "",
     completed: Boolean(row.completed),
     completedAt: row.completed_at,
     createdAt: row.created_at
@@ -602,6 +612,9 @@ function expenseToRow(expense) {
     amount: Number(expense.amount || 0),
     frequency: expense.frequency || "monthly",
     next_date: expense.nextDate,
+    category: expense.category || "Other",
+    status: expense.status || "unpaid",
+    notes: expense.notes || null,
     created_at: expense.createdAt || new Date().toISOString()
   };
 }
@@ -613,6 +626,9 @@ function rowToExpense(row) {
     amount: Number(row.amount || 0),
     frequency: row.frequency,
     nextDate: row.next_date,
+    category: row.category || "Other",
+    status: row.status || "unpaid",
+    notes: row.notes || "",
     createdAt: row.created_at
   };
 }
@@ -1195,61 +1211,29 @@ $("cloudSetupHelpBtn").addEventListener("click", () => setupDialog.showModal());
 /* ---------- Reminder and expense form events ---------- */
 reminderForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-
+  const editId = reminderForm.dataset.editId;
   const reminder = {
-    id: uid(),
-    title: $("title").value.trim(),
-    category: $("category").value,
-    priority: $("priority").value,
-    dueDate: $("dueDate").value,
-    dueTime: $("dueTime").value || "09:00",
-    dueAt: dueTimestamp($("dueDate").value, $("dueTime").value || "09:00"),
-    dueTimezone: currentTimeZone(),
-    repeat: $("repeat").value,
-    amount: $("amount").value ? Number($("amount").value) : null,
-    notes: $("notes").value.trim(),
-    completed: false,
-    completedAt: null,
-    createdAt: new Date().toISOString()
+    id: editId || uid(), title: $("title").value.trim(), category: $("category").value, priority: $("priority").value,
+    dueDate: $("dueDate").value, dueTime: $("dueTime").value || "09:00", dueAt: dueTimestamp($("dueDate").value, $("dueTime").value || "09:00"),
+    dueTimezone: currentTimeZone(), repeat: $("repeat").value, amount: $("amount").value ? Number($("amount").value) : null,
+    notes: $("notes").value.trim(), location: $("location")?.value.trim() || "", remindBefore: Number($("remindBefore")?.value || 0), attachment: $("attachment")?.value.trim() || "",
+    completed: false, completedAt: null, createdAt: new Date().toISOString()
   };
-
   if (!reminder.title || !reminder.dueDate) return;
-
-  state.reminders.push(reminder);
-  saveLocalData();
-  reminderDialog.close();
-  render();
-  scheduleLocalCheck();
-
-  if (state.user) {
-    setSyncStatus("syncing", "Saving reminder…", "Uploading your new reminder to Supabase.");
-    await syncReminderToCloud(reminder);
-  }
+  if (editId) { const index=state.reminders.findIndex(r=>r.id===editId); if(index>=0) state.reminders[index]={...state.reminders[index],...reminder}; }
+  else state.reminders.push(reminder);
+  saveLocalData(); reminderForm.reset(); delete reminderForm.dataset.editId; reminderDialog.close(); render(); scheduleLocalCheck();
+  if (state.user) { setSyncStatus("syncing", editId ? "Updating reminder…" : "Saving reminder…", "Uploading your changes to Supabase."); await syncReminderToCloud(reminder); }
 });
 
 expenseForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-
-  const expense = {
-    id: uid(),
-    name: $("expenseName").value.trim(),
-    amount: Number($("expenseAmount").value || 0),
-    frequency: $("expenseFrequency").value,
-    nextDate: $("expenseDate").value,
-    createdAt: new Date().toISOString()
-  };
-
-  if (!expense.name || !expense.nextDate || expense.amount < 0) return;
-
-  state.expenses.push(expense);
-  saveLocalData();
-  expenseDialog.close();
-  render();
-
-  if (state.user) {
-    setSyncStatus("syncing", "Saving expense…", "Uploading your recurring expense to Supabase.");
-    await syncExpenseToCloud(expense);
-  }
+  const editId=expenseForm.dataset.editId;
+  const expense={id:editId||uid(),name:$("expenseName").value.trim(),amount:Number($("expenseAmount").value||0),frequency:$("expenseFrequency").value,nextDate:$("expenseDate").value,category:$("expenseCategory")?.value||"Other",status:$("expenseStatus")?.value||"unpaid",notes:$("expenseNotes")?.value.trim()||"",createdAt:new Date().toISOString()};
+  if(!expense.name||!expense.nextDate||expense.amount<0)return;
+  if(editId){const i=state.expenses.findIndex(e=>e.id===editId);if(i>=0)state.expenses[i]={...state.expenses[i],...expense};}else state.expenses.push(expense);
+  saveLocalData();expenseForm.reset();delete expenseForm.dataset.editId;expenseDialog.close();render();
+  if(state.user){setSyncStatus("syncing",editId?"Updating expense…":"Saving expense…","Uploading your changes to Supabase.");await syncExpenseToCloud(expense);}
 });
 
 /* ---------- General interface ---------- */
@@ -1259,7 +1243,7 @@ $("addExpenseBtn").addEventListener("click", openExpenseDialog);
 $("navExpensesBtn").addEventListener("click", () => {
   document.querySelector(".side-panel").scrollIntoView({ behavior: "smooth", block: "start" });
 });
-$("filterCategory").addEventListener("change", renderReminders);
+$("filterCategory").addEventListener("change", () => window.lifeAdminEnhancedRenderReminders ? window.lifeAdminEnhancedRenderReminders() : renderReminders());
 $("clearCompletedBtn").addEventListener("click", clearCompleted);
 
 document.querySelectorAll("[data-close]").forEach(btn => {
@@ -1627,3 +1611,82 @@ render();
 updateInstallUI();
 scheduleLocalCheck();
 initSupabase();
+
+
+/* ---------- Life Admin 2.0 enhancements ---------- */
+(function enhanceLifeAdmin() {
+  const inboxKey = STORAGE_KEYS.inbox;
+  const loadInbox = () => { try { return JSON.parse(localStorage.getItem(inboxKey)) || []; } catch { return []; } };
+  state.inbox = state.inbox || loadInbox();
+  state.calendarDate = state.calendarDate || new Date();
+
+  function saveInbox() { localStorage.setItem(inboxKey, JSON.stringify(state.inbox)); }
+  function navTo(section) {
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    const map = {home:'navHomeBtn', calendar:'navCalendarBtn', money:'navExpensesBtn'};
+    $(map[section] || 'navHomeBtn')?.classList.add('active');
+    if (section === 'calendar') $('calendarDialog')?.showModal();
+    else if (section === 'money') document.querySelector('.money-dashboard')?.scrollIntoView({behavior:'smooth', block:'start'});
+    else window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  window.lifeAdminEnhancedRenderReminders = function() {
+    const list = $('reminderList'); if (!list) return;
+    const filter = $('filterCategory')?.value || 'all';
+    const reminders = state.reminders.filter(r => !r.completed && (filter === 'all' || r.category === filter)).sort((a,b)=>parseDue(a)-parseDue(b));
+    if (!reminders.length) { list.innerHTML='<div class="empty-state">Nothing upcoming. You are all caught up.</div>'; return; }
+    list.innerHTML = reminders.map(r => `<article class="reminder-card enhanced-card" data-id="${r.id}">
+      <div class="reminder-main"><div class="reminder-title-row"><p class="reminder-title">${escapeHtml(r.title)}</p><span class="tag">${escapeHtml(r.category)}</span>${r.priority==='high'?'<span class="tag high">High</span>':''}</div>
+      <p class="reminder-meta">${formatDue(r)}${r.repeat!=='none'?` · ${repeatLabel(r.repeat)}`:''}${r.amount?` · ${money(r.amount)}`:''}</p>
+      ${r.location?`<p class="reminder-notes">📍 ${escapeHtml(r.location)}</p>`:''}${r.notes?`<p class="reminder-notes">${escapeHtml(r.notes)}</p>`:''}${r.attachment?`<p class="reminder-notes"><a href="${escapeHtml(r.attachment)}" target="_blank" rel="noopener">Open attachment</a></p>`:''}</div>
+      <div class="card-actions"><button class="action-btn" onclick="completeReminder('${r.id}')">Done</button><button class="action-btn" onclick="editReminder('${r.id}')">Edit</button><button class="action-btn danger" onclick="deleteReminder('${r.id}')">Delete</button></div></article>`).join('');
+  };
+  window.lifeAdminEnhancedRenderExpenses = function() {
+    const list=$('expenseList'); if(!list) return;
+    const expenses=[...state.expenses].sort((a,b)=>new Date(a.nextDate)-new Date(b.nextDate));
+    list.innerHTML=expenses.length?expenses.map(e=>`<article class="expense-card"><div><strong>${escapeHtml(e.name)}</strong><small>${capitalize(e.frequency)} · ${escapeHtml(e.category||'Other')} · ${e.status==='paid'?'Paid':'Upcoming'} · next ${new Date(e.nextDate+'T00:00:00').toLocaleDateString('en-ZA',{day:'numeric',month:'short'})}</small>${e.notes?`<p class="reminder-notes">${escapeHtml(e.notes)}</p>`:''}</div><div class="expense-amount">${money(e.amount)}<div><button class="action-btn" onclick="editExpense('${e.id}')">Edit</button><button class="action-btn danger" onclick="deleteExpense('${e.id}')">Delete</button></div></div></article>`).join(''):'<div class="empty-state">No bills or subscriptions yet.</div>';
+    const monthly=state.expenses.reduce((sum,e)=>sum+monthlyEquivalent(e),0), yearly=state.expenses.reduce((sum,e)=>sum+yearlyEquivalent(e),0);
+    $('expenseMonthlyTotal').textContent=money(monthly); $('expenseYearlyTotal').textContent=money(yearly);
+  };
+  window.lifeAdminEnhancedRender = function(){ window.lifeAdminEnhancedRenderReminders(); renderCompleted(); window.lifeAdminEnhancedRenderExpenses(); renderStats(); renderTodayTimeline(); renderMoneyDashboard(); renderInbox(); updateNotificationButton(); updateAccountUI(); };
+
+  function renderTodayTimeline(){
+    const el=$('todayTimeline'); if(!el) return; const now=new Date(), today=localDateString(now); const items=state.reminders.filter(r=>!r.completed&&r.dueDate===today).sort((a,b)=>parseDue(a)-parseDue(b));
+    $('todayDateLabel').textContent=now.toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'short'});
+    el.innerHTML=items.length?items.map(r=>`<div class="timeline-item"><span class="timeline-time">${escapeHtml(r.dueTime||'09:00')}</span><div><strong>${escapeHtml(r.title)}</strong><small>${escapeHtml(r.category)}${r.location?' · 📍 '+escapeHtml(r.location):''}</small></div><button class="action-btn" onclick="completeReminder('${r.id}')">Done</button></div>`).join(''):'<div class="empty-state">Your day is clear. Add something when you need to remember it.</div>';
+  }
+  function renderMoneyDashboard(){
+    if(!$('moneyMonthly')) return; const monthly=state.expenses.reduce((s,e)=>s+monthlyEquivalent(e),0), yearly=state.expenses.reduce((s,e)=>s+yearlyEquivalent(e),0), now=new Date(), end=new Date(now); end.setDate(end.getDate()+30);
+    const due=state.expenses.filter(e=>{const d=new Date(e.nextDate+'T00:00:00');return d>=new Date(now.getFullYear(),now.getMonth(),now.getDate())&&d<=end}).sort((a,b)=>new Date(a.nextDate)-new Date(b.nextDate));
+    $('moneyMonthly').textContent=money(monthly); $('moneyYearly').textContent=money(yearly); $('moneyNext30').textContent=money(due.reduce((s,e)=>s+Number(e.amount||0),0));
+    $('moneyDueList').innerHTML=due.length?due.slice(0,6).map(e=>`<div class="money-due-row"><span>${escapeHtml(e.name)}<small>${new Date(e.nextDate+'T00:00:00').toLocaleDateString('en-ZA',{day:'numeric',month:'short'})}</small></span><strong>${money(e.amount)}</strong></div>`).join(''):'<div class="empty-state">No payments due in the next 30 days.</div>';
+  }
+  function renderInbox(){
+    const el=$('inboxList'); if(!el) return; const items=state.inbox.slice(-6).reverse();
+    el.innerHTML=items.length?items.map(i=>`<div class="inbox-row"><span>${escapeHtml(i.text)}</span><div><button class="action-btn" onclick="convertInbox('${i.id}')">Make reminder</button><button class="action-btn danger" onclick="removeInbox('${i.id}')">×</button></div></div>`).join(''):'<div class="empty-state">Capture ideas here without filling in a form.</div>';
+  }
+  window.removeInbox=id=>{state.inbox=state.inbox.filter(i=>i.id!==id);saveInbox();renderInbox();};
+  window.convertInbox=id=>{const i=state.inbox.find(x=>x.id===id);if(!i)return;$('title').value=i.text;$('dueDate').value=localDateString();$('reminderDialog').showModal();removeInbox(id);};
+  window.editReminder=id=>{const r=state.reminders.find(x=>x.id===id);if(!r)return;$('title').value=r.title;$('category').value=r.category;$('priority').value=r.priority;$('dueDate').value=r.dueDate;$('dueTime').value=r.dueTime||'09:00';$('repeat').value=r.repeat||'none';$('amount').value=r.amount??'';$('notes').value=r.notes||'';$('location').value=r.location||'';$('remindBefore').value=String(r.remindBefore||0);$('attachment').value=r.attachment||'';reminderForm.dataset.editId=id;$('reminderDialog').showModal();};
+  window.editExpense=id=>{const e=state.expenses.find(x=>x.id===id);if(!e)return;$('expenseName').value=e.name;$('expenseAmount').value=e.amount;$('expenseFrequency').value=e.frequency;$('expenseDate').value=e.nextDate;$('expenseCategory').value=e.category||'Other';$('expenseStatus').value=e.status||'unpaid';$('expenseNotes').value=e.notes||'';expenseForm.dataset.editId=id;$('expenseDialog').showModal();};
+  function setupCalendar(){
+    const d=state.calendarDate, y=d.getFullYear(), m=d.getMonth(), first=new Date(y,m,1), days=new Date(y,m+1,0).getDate(), start=(first.getDay()+6)%7; $('calendarMonthLabel').textContent=d.toLocaleDateString('en-ZA',{month:'long',year:'numeric'});
+    const names=['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; let out=names.map(n=>`<div class="calendar-weekday">${n}</div>`).join(''); for(let i=0;i<start;i++)out+='<div class="calendar-cell muted"></div>'; for(let day=1;day<=days;day++){const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`,count=state.reminders.filter(r=>r.dueDate===ds&&!r.completed).length;out+=`<button class="calendar-cell ${ds===localDateString()?'today':''}" data-date="${ds}" type="button"><b>${day}</b>${count?`<i>${count}</i>`:''}</button>`;} $('calendarGrid').innerHTML=out;
+    $('calendarGrid').querySelectorAll('[data-date]').forEach(b=>b.onclick=()=>showCalendarDay(b.dataset.date)); showCalendarDay(localDateString(d));
+  }
+  function showCalendarDay(ds){const items=state.reminders.filter(r=>r.dueDate===ds&&!r.completed).sort((a,b)=>parseDue(a)-parseDue(b));$('calendarDayItems').innerHTML=`<h3>${new Date(ds+'T12:00:00').toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long'})}</h3>`+(items.length?items.map(r=>`<div class="calendar-item"><span>${escapeHtml(r.dueTime||'09:00')}</span><strong>${escapeHtml(r.title)}</strong><small>${escapeHtml(r.category)}</small></div>`).join(''):'<div class="empty-state">Nothing scheduled.</div>');}
+
+  function openCalendar(){state.calendarDate=new Date();setupCalendar();$('calendarDialog').showModal();}
+  $('openCalendarBtn')?.addEventListener('click',openCalendar); $('navCalendarBtn')?.addEventListener('click',openCalendar); $('calendarPrev')?.addEventListener('click',()=>{state.calendarDate.setMonth(state.calendarDate.getMonth()-1);setupCalendar();}); $('calendarNext')?.addEventListener('click',()=>{state.calendarDate.setMonth(state.calendarDate.getMonth()+1);setupCalendar();});
+  $('navHomeBtn')?.addEventListener('click',()=>navTo('home')); $('navExpensesBtn')?.addEventListener('click',()=>navTo('money')); $('navMoreBtn')?.addEventListener('click',()=>$('moreDialog').showModal()); $('moneyAddBtn')?.addEventListener('click',openExpenseDialog);
+  $('todayBtn')?.addEventListener('click',()=>{window.scrollTo({top:0,behavior:'smooth'});});
+  $('globalSearch')?.addEventListener('input',e=>{const q=e.target.value.trim().toLowerCase(), box=$('searchResults'); if(!q){box.classList.add('hidden');return;} const rs=state.reminders.filter(r=>(r.title+' '+r.category+' '+(r.notes||'')).toLowerCase().includes(q)).slice(0,8), es=state.expenses.filter(x=>(x.name+' '+(x.category||'')+' '+(x.notes||'')).toLowerCase().includes(q)).slice(0,8); box.innerHTML=[...rs.map(r=>`<button onclick="document.querySelector('[data-id=\\"${r.id}\\"]').scrollIntoView({behavior:'smooth'})"><b>${escapeHtml(r.title)}</b><span>${escapeHtml(r.category)} · ${formatDue(r)}</span></button>`),...es.map(e=>`<button onclick="document.querySelector('.money-dashboard').scrollIntoView({behavior:'smooth'})"><b>${escapeHtml(e.name)}</b><span>${money(e.amount)} · ${escapeHtml(e.category||'Expense')}</span></button>`)].join('')||'<div class="empty-state">No matches found.</div>'; box.classList.remove('hidden');});
+  $('inboxAddBtn')?.addEventListener('click',()=>{const text=$('inboxInput').value.trim();if(!text)return;state.inbox.push({id:uid(),text,createdAt:new Date().toISOString()});saveInbox();$('inboxInput').value='';renderInbox();}); $('inboxInput')?.addEventListener('keydown',e=>{if(e.key==='Enter')$('inboxAddBtn').click();});
+  $('moreNotifications')?.addEventListener('click',()=>{$('moreDialog').close();requestNotifications();}); $('moreAppearance')?.addEventListener('click',()=>{$('moreDialog').close();openAppearanceDialog();}); $('moreAccount')?.addEventListener('click',()=>{$('moreDialog').close();$('accountDialog').showModal();}); $('moreInstall')?.addEventListener('click',()=>{$('moreDialog').close();showInstallDialog();}); $('moreCompleted')?.addEventListener('click',()=>{$('moreDialog').close();document.querySelector('.completed-panel')?.scrollIntoView({behavior:'smooth'});});
+  $('moreExport')?.addEventListener('click',()=>{const payload={exportedAt:new Date().toISOString(),reminders:state.reminders,expenses:state.expenses,inbox:state.inbox,appearance:state.appearance};const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`life-admin-backup-${localDateString()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);});
+
+  // Enhance recurring date rollover and reminder-before semantics in local foreground fallback.
+  const originalCheck=checkDueNotifications; window.checkDueNotifications=async function(){try{const now=new Date();state.reminders.filter(r=>!r.completed).forEach(r=>{if(r.remindBefore){const due=parseDue(r), target=new Date(due.getTime()-Number(r.remindBefore)*60000); if(now>=target&&now<=new Date(target.getTime()+60000)){const sent=JSON.parse(localStorage.getItem('lifeAdmin.lastSent')||'{}');if(!sent['pre_'+r.id]){getServiceWorkerRegistration().then(reg=>reg?.showNotification(r.title,{body:`Starts ${formatDue(r)}${r.location?' · '+r.location:''}`,icon:'icons/icon-192.png',badge:'icons/icon-192.png',tag:'pre-'+r.id,data:{url:'./',reminderId:r.id}}));sent['pre_'+r.id]=Date.now();localStorage.setItem('lifeAdmin.lastSent',JSON.stringify(sent));}}}});}catch(e){console.warn(e);} return originalCheck();};
+  // Re-render after enhancements have loaded.
+  setTimeout(()=>window.lifeAdminEnhancedRender(),0);
+})();
