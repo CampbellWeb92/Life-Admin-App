@@ -1,4 +1,4 @@
-const CACHE = "life-admin-v8-supabase-push";
+const CACHE = "life-admin-v9-personalized-push";
 const ASSETS = [
   "./",
   "./index.html",
@@ -70,6 +70,7 @@ self.addEventListener("push", event => {
     body: data.body || "You have a Life Admin reminder.",
     icon: data.icon || "icons/icon-192.png",
     badge: data.badge || "icons/icon-192.png",
+    image: data.image || undefined,
     tag: data.tag || "life-admin-reminder",
     renotify: true,
     data: {
@@ -79,9 +80,14 @@ self.addEventListener("push", event => {
     }
   };
 
-  event.waitUntil(
-    self.registration.showNotification(data.title || "Life Admin", options)
-  );
+  event.waitUntil((async () => {
+    const show = self.registration.showNotification(data.title || "Life Admin", options);
+    try {
+      const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of clients) client.postMessage({ type: "LIFE_ADMIN_PUSH", tone: data.tone || "chime" });
+    } catch {}
+    await show;
+  })());
 });
 
 self.addEventListener("notificationclick", event => {

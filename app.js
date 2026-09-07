@@ -5,7 +5,8 @@ const STORAGE_KEYS = {
   legacyMigrationDone: "lifeAdmin.cloudMigrationDone",
   lastSync: "lifeAdmin.lastSync",
   pendingOps: "lifeAdmin.pendingOps",
-  inbox: "lifeAdmin.inbox"
+  inbox: "lifeAdmin.inbox",
+  personalization: "lifeAdmin.personalization"
 };
 
 const DEFAULT_APPEARANCE = {
@@ -27,6 +28,7 @@ const state = {
   expenses: load(STORAGE_KEYS.expenses),
   inbox: load(STORAGE_KEYS.inbox),
   appearance: loadAppearance(),
+  personalization: loadPersonalization(),
   user: null,
   supabase: null,
   cloudConfigured: false,
@@ -44,7 +46,6 @@ const expenseDialog = $("expenseDialog");
 const appearanceDialog = $("appearanceDialog");
 const accountDialog = $("accountDialog");
 const installDialog = $("installDialog");
-const setupDialog = $("setupDialog");
 const reminderForm = $("reminderForm");
 const expenseForm = $("expenseForm");
 const authForm = $("authForm");
@@ -64,6 +65,110 @@ function loadAppearance() {
   } catch {
     return { ...DEFAULT_APPEARANCE };
   }
+}
+
+function loadPersonalization() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEYS.personalization));
+    return {
+      notificationTone: saved?.notificationTone || "chime",
+      backgroundImagePath: saved?.backgroundImagePath || "",
+      notificationImagePath: saved?.notificationImagePath || "",
+      notificationImageEnabled: Boolean(saved?.notificationImageEnabled)
+    };
+  } catch {
+    return { notificationTone: "chime", backgroundImagePath: "", notificationImagePath: "", notificationImageEnabled: false };
+  }
+}
+
+function savePersonalizationLocal() {
+  localStorage.setItem(STORAGE_KEYS.personalization, JSON.stringify(state.personalization));
+}
+
+function notificationToneFile(tone = state.personalization?.notificationTone || "chime") {
+  const allowed = ["chime","bell","soft","digital","urgent"];
+  return `sounds/${allowed.includes(tone) ? tone : "chime"}.wav`;
+}
+
+async function previewNotificationTone(tone = state.personalization?.notificationTone || "chime") {
+  try {
+    const audio = new Audio(notificationToneFile(tone));
+    audio.volume = 0.75;
+    await audio.play();
+  } catch (error) {
+    console.warn("Could not preview notification tone:", error);
+  }
+}
+
+async function getSignedMediaUrl(path) {
+  if (!path || !state.supabase || !state.user) return "";
+  const { data, error } = await state.supabase.storage.from("life-admin-media").createSignedUrl(path, 60 * 60 * 24);
+  if (error) { console.warn("Could not create media URL:", error); return ""; }
+  return data?.signedUrl || "";
+}
+
+async function applyPersonalizationMedia() {
+  const bg = await getSignedMediaUrl(state.personalization?.backgroundImagePath);
+  const root = document.documentElement;
+  if (bg) {
+    root.style.setProperty("--life-admin-background", `url("${bg.replace(/"/g, '\\"')}")`);
+    root.classList.add("has-custom-background");
+  } else {
+    root.style.removeProperty("--life-admin-background");
+    root.classList.remove("has-custom-background");
+  }
+
+  const preview = $("backgroundImagePreview");
+  if (preview) preview.innerHTML = bg ? `<img src="${escapeHtml(bg)}" alt="Your background image">` : "";
+
+  const notifUrl = await getSignedMediaUrl(state.personalization?.notificationImagePath);
+  const notifPreview = $("notificationImagePreview");
+  if (notifPreview) notifPreview.innerHTML = notifUrl ? `<img src="${escapeHtml(notifUrl)}" alt="Your notification image">` : "";
+  if ($("notificationImageEnabled")) $("notificationImageEnabled").checked = Boolean(state.personalization?.notificationImageEnabled);
+}
+
+async function syncPersonalizationToCloud() {
+  if (!state.supabase || !state.user) return false;
+  const p = state.personalization;
+  const { error } = await state.supabase.from("user_settings").upsert({
+    user_id: state.user.id,
+    theme: state.appearance.theme,
+    accent: state.appearance.accent,
+    accent_name: state.appearance.accentName,
+    notification_tone: p.notificationTone,
+    background_image_path: p.backgroundImagePath || null,
+    notification_image_path: p.notificationImagePath || null,
+    notification_image_enabled: Boolean(p.notificationImageEnabled),
+    updated_at: new Date().toISOString()
+  });
+  if (error) { console.error("Personalization sync failed:", error); return false; }
+  return true;
+}
+
+async function uploadPersonalImage(kind, file) {
+  if (!state.supabase || !state.user || !file) return;
+  if (!file.type.startsWith("image/")) return alert("Please choose an image file.");
+  if (file.size > 10 * 1024 * 1024) return alert("Please choose an image smaller than 10 MB.");
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const path = `${state.user.id}/${kind}-${Date.now()}.${ext}`;
+  const { error } = await state.supabase.storage.from("life-admin-media").upload(path, file, { upsert: true, contentType: file.type });
+  if (error) return alert(`Image upload failed: ${error.message}`);
+  if (kind === "background") state.personalization.backgroundImagePath = path;
+  else state.personalization.notificationImagePath = path;
+  savePersonalizationLocal();
+  await syncPersonalizationToCloud();
+  await applyPersonalizationMedia();
+}
+
+async function removePersonalImage(kind) {
+  const key = kind === "background" ? "backgroundImagePath" : "notificationImagePath";
+  const path = state.personalization[key];
+  if (path && state.supabase) await state.supabase.storage.from("life-admin-media").remove([path]);
+  state.personalization[key] = "";
+  if (kind === "notification") state.personalization.notificationImageEnabled = false;
+  savePersonalizationLocal();
+  await syncPersonalizationToCloud();
+  await applyPersonalizationMedia();
 }
 
 function saveLocalData() {
@@ -137,6 +242,10 @@ async function flushPendingOperations() {
         theme: op.payload.theme,
         accent: op.payload.accent,
         accent_name: op.payload.accentName,
+        notification_tone: op.payload.notificationTone || "chime",
+        background_image_path: op.payload.backgroundImagePath || null,
+        notification_image_path: op.payload.notificationImagePath || null,
+        notification_image_enabled: Boolean(op.payload.notificationImageEnabled),
         updated_at: new Date().toISOString()
       }));
     }
@@ -361,6 +470,10 @@ function resetAppearance() {
 
 function openAppearanceDialog() {
   applyAppearance();
+  const tone = state.personalization?.notificationTone || "chime";
+  document.querySelectorAll("[data-tone]").forEach(b => b.classList.toggle("selected", b.dataset.tone === tone));
+  if ($("currentNotificationToneLabel")) $("currentNotificationToneLabel").textContent = tone.charAt(0).toUpperCase() + tone.slice(1);
+  applyPersonalizationMedia();
   appearanceDialog.showModal();
 }
 
@@ -843,10 +956,18 @@ async function syncFromCloud({ allowLegacyMigration = false } = {}) {
       accent: settingsResult.data.accent || DEFAULT_APPEARANCE.accent,
       accentName: settingsResult.data.accent_name || "Custom"
     };
+    state.personalization = {
+      notificationTone: settingsResult.data.notification_tone || state.personalization.notificationTone || "chime",
+      backgroundImagePath: settingsResult.data.background_image_path || state.personalization.backgroundImagePath || "",
+      notificationImagePath: settingsResult.data.notification_image_path || state.personalization.notificationImagePath || "",
+      notificationImageEnabled: Boolean(settingsResult.data.notification_image_enabled)
+    };
     saveAppearanceLocal();
+    savePersonalizationLocal();
     applyAppearance();
+    applyPersonalizationMedia();
   } else {
-    await syncAppearanceToCloud();
+    await syncPersonalizationToCloud();
   }
 
   saveLocalData();
@@ -898,28 +1019,27 @@ async function syncExpenseToCloud(expense) {
 
 async function syncAppearanceToCloud() {
   if (!state.supabase || !state.user) return false;
-
-  const payload = { ...state.appearance };
-
+  const payload = { ...state.appearance, ...state.personalization };
   if (!navigator.onLine) {
     queueCloudOperation({ entity: "appearance", action: "upsert", payload });
     return false;
   }
-
   const { error } = await state.supabase.from("user_settings").upsert({
     user_id: state.user.id,
     theme: payload.theme,
     accent: payload.accent,
     accent_name: payload.accentName,
+    notification_tone: payload.notificationTone || "chime",
+    background_image_path: payload.backgroundImagePath || null,
+    notification_image_path: payload.notificationImagePath || null,
+    notification_image_enabled: Boolean(payload.notificationImageEnabled),
     updated_at: new Date().toISOString()
   });
-
   if (error) {
     console.error(error);
     queueCloudOperation({ entity: "appearance", action: "upsert", payload });
     return false;
   }
-
   return true;
 }
 
@@ -1181,12 +1301,7 @@ $("logoutBtn").addEventListener("click", async () => {
 });
 
 $("accountBtn").addEventListener("click", () => {
-  if (!state.cloudConfigured) {
-    setupDialog.showModal();
-    return;
-  }
-
-  if (!state.user) {
+  if (!state.cloudConfigured || !state.user) {
     showAuthGate();
     return;
   }
@@ -1197,16 +1312,12 @@ $("accountBtn").addEventListener("click", () => {
 
 $("accountSyncBtn").addEventListener("click", () => syncFromCloud());
 $("syncNowBtn").addEventListener("click", () => {
-  if (!state.cloudConfigured) {
-    setupDialog.showModal();
-  } else if (!state.user) {
+  if (!state.cloudConfigured || !state.user) {
     showAuthGate();
   } else {
     syncFromCloud();
   }
 });
-
-$("cloudSetupHelpBtn").addEventListener("click", () => setupDialog.showModal());
 
 /* ---------- Reminder and expense form events ---------- */
 reminderForm.addEventListener("submit", async (event) => {
@@ -1266,6 +1377,29 @@ $("customAccent").addEventListener("input", (event) => {
 });
 
 $("resetAppearanceBtn").addEventListener("click", resetAppearance);
+
+/* ---------- Personalisation controls ---------- */
+document.querySelectorAll("[data-tone]").forEach(button => {
+  button.addEventListener("click", async () => {
+    const tone = button.dataset.tone;
+    state.personalization.notificationTone = tone;
+    savePersonalizationLocal();
+    document.querySelectorAll("[data-tone]").forEach(b => b.classList.toggle("selected", b.dataset.tone === tone));
+    if ($("currentNotificationToneLabel")) $("currentNotificationToneLabel").textContent = tone.charAt(0).toUpperCase() + tone.slice(1);
+    await syncPersonalizationToCloud();
+    await previewNotificationTone(tone);
+  });
+});
+$("previewNotificationToneBtn")?.addEventListener("click", () => previewNotificationTone());
+$("backgroundImageUpload")?.addEventListener("change", e => uploadPersonalImage("background", e.target.files?.[0]));
+$("notificationImageUpload")?.addEventListener("change", e => uploadPersonalImage("notification", e.target.files?.[0]));
+$("removeBackgroundImageBtn")?.addEventListener("click", () => removePersonalImage("background"));
+$("removeNotificationImageBtn")?.addEventListener("click", () => removePersonalImage("notification"));
+$("notificationImageEnabled")?.addEventListener("change", async e => {
+  state.personalization.notificationImageEnabled = e.target.checked;
+  savePersonalizationLocal();
+  await syncPersonalizationToCloud();
+});
 
 /* ---------- Background push notifications ---------- */
 $("notifyBtn").addEventListener("click", requestNotifications);
@@ -1338,13 +1472,12 @@ async function requestNotifications() {
   }
 
   if (!state.cloudConfigured || !state.user) {
-    if (!state.cloudConfigured) setupDialog.showModal();
-    else showAuthGate();
+    if (!state.cloudConfigured || !state.user) showAuthGate();
     return;
   }
 
   if (!state.pushConfigured) {
-    alert("Background notifications still need a VAPID public key. Add it to config.js after completing PUSH-NOTIFICATIONS-SETUP.md.");
+    alert("Background notifications are not configured on this installation.");
     return;
   }
 
@@ -1492,6 +1625,12 @@ async function checkDueNotifications() {
   });
 
   localStorage.setItem("lifeAdmin.lastSent", JSON.stringify(lastSent));
+}
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("message", event => {
+    if (event.data?.type === "LIFE_ADMIN_PUSH") previewNotificationTone(event.data.tone || "chime");
+  });
 }
 
 /* ---------- PWA installation ---------- */

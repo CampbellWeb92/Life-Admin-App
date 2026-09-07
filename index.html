@@ -105,7 +105,6 @@
           <small id="syncStatusDetail">Your data is still available locally while the app checks Supabase.</small>
         </div>
       </div>
-      <button id="cloudSetupHelpBtn" class="text-btn cloud-help-btn" type="button">Setup help</button>
     </section>
 
     <main>
@@ -350,6 +349,45 @@
         </label>
       </section>
 
+      <section class="appearance-section personalization-media-section">
+        <div class="setting-heading">
+          <strong>Notification tone</strong>
+          <span id="currentNotificationToneLabel">Chime</span>
+        </div>
+        <div class="tone-grid" id="notificationToneGrid" aria-label="Notification tone choices">
+          <button class="tone-option selected" type="button" data-tone="chime"><span>♪</span><b>Chime</b><small>Bright & friendly</small></button>
+          <button class="tone-option" type="button" data-tone="bell"><span>🔔</span><b>Bell</b><small>Clear & classic</small></button>
+          <button class="tone-option" type="button" data-tone="soft"><span>♫</span><b>Soft</b><small>Gentle & calm</small></button>
+          <button class="tone-option" type="button" data-tone="digital"><span>▣</span><b>Digital</b><small>Short & crisp</small></button>
+          <button class="tone-option" type="button" data-tone="urgent"><span>!</span><b>Urgent</b><small>Harder to miss</small></button>
+        </div>
+        <button id="previewNotificationToneBtn" class="small-btn full-width" type="button">▶ Preview selected tone</button>
+        <small class="setting-help">Your browser/device controls the sound of true background Web Push notifications. The selected tone is used for Life Admin's in-app notification previews and is included with push preferences.</small>
+      </section>
+
+      <section class="appearance-section personalization-media-section">
+        <div class="setting-heading">
+          <strong>Background image</strong>
+          <span>Private to you</span>
+        </div>
+        <p class="setting-help">Upload an image to personalise your Life Admin background. It is stored securely in your Supabase account.</p>
+        <input id="backgroundImageUpload" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+        <div class="media-preview" id="backgroundImagePreview"></div>
+        <button id="removeBackgroundImageBtn" class="small-btn full-width" type="button">Remove background image</button>
+      </section>
+
+      <section class="appearance-section personalization-media-section">
+        <div class="setting-heading">
+          <strong>Notification image</strong>
+          <span>Private to you</span>
+        </div>
+        <p class="setting-help">Choose an image to show with your Life Admin push notifications where the browser supports notification images.</p>
+        <input id="notificationImageUpload" type="file" accept="image/png,image/jpeg,image/webp,image/gif" />
+        <label class="toggle-row"><span><strong>Use my image in notifications</strong><small>Applies to future background push alerts.</small></span><input id="notificationImageEnabled" type="checkbox" /></label>
+        <div class="media-preview" id="notificationImagePreview"></div>
+        <button id="removeNotificationImageBtn" class="small-btn full-width" type="button">Remove notification image</button>
+      </section>
+
       <button id="resetAppearanceBtn" class="small-btn full-width" type="button">Reset to default</button>
     </div>
   </dialog>
@@ -397,33 +435,7 @@
       <button id="tryInstallBtn" class="primary-btn full" type="button">Install App</button>
     </div>
   </dialog>
-
-  <dialog id="setupDialog" class="dialog">
-    <div class="form-card">
-      <div class="dialog-head">
-        <div>
-          <p class="eyebrow">SUPABASE SETUP</p>
-          <h2>Connect cloud syncing</h2>
-          <p class="dialog-subtitle">The app is ready for Supabase. Add your project URL, publishable key and Web Push public key to activate login, cloud sync and background notifications.</p>
-        </div>
-        <button class="icon-btn" type="button" data-close="setupDialog" aria-label="Close">×</button>
-      </div>
-
-      <ol class="setup-steps">
-        <li>Create or open your Supabase project.</li>
-        <li>Run <code>supabase-schema.sql</code> in the SQL Editor.</li>
-        <li>Open <code>config.js</code> in this app folder.</li>
-        <li>Paste your Project URL and <strong>publishable</strong> key.</li>
-        <li>Upload the app folder to an HTTPS website and refresh.</li>
-      </ol>
-
-      <div class="security-note">
-        Never put a <code>service_role</code> or secret key into website JavaScript.
-      </div>
-    </div>
-  </dialog>
-
-  <dialog id="reminderDialog" class="dialog">
+<dialog id="reminderDialog" class="dialog">
     <form id="reminderForm" method="dialog" class="form-card">
       <div class="dialog-head">
         <div>
