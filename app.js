@@ -1251,7 +1251,7 @@ document.querySelectorAll("[data-close]").forEach(btn => {
 });
 
 $("appearanceBtn").addEventListener("click", openAppearanceDialog);
-$("navAppearanceBtn").addEventListener("click", openAppearanceDialog);
+$("navAppearanceBtn")?.addEventListener("click", openAppearanceDialog);
 
 document.querySelectorAll("[data-theme-choice]").forEach(button => {
   button.addEventListener("click", () => setTheme(button.dataset.themeChoice));
